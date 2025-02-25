@@ -4,29 +4,33 @@ const { Client } = require('pg')
 const app = express()
 const port = 3000
 
-let client 
+let client
 
-if (process.env.PG_HOST) {
+const connectDB = async () => {
   client = new Client({
-    user: process.env.PG_USER || 'postgres',
+    user: process.env.PG_USER,
     host: process.env.PG_HOST,
-    database: process.env.PG_DATABASE || 'mydb',
-    password: process.env.PG_PASSWORD || 'password',
-    port: process.env.PG_PORT || 5432
+    database: process.env.PG_DATABASE,
+    password: process.env.PG_PASSWORD,
+    port: process.env.PG_PORT,
+    connectionTimeoutMillis: 3000 
   })
 
-  client
-    .connect()
-    .then(() => console.log('✅ Connected to PostgreSQL'))
-    .catch(err =>
-      console.error('❌ Error connecting to PostgreSQL:', err.message)
-    )
+  try {
+    await client.connect()
+    console.log('✅ Connected to PostgreSQL')
+  } catch (error) {
+    console.error('❌ DB connection error:', error.message)
+    client = null 
+  }
 }
+
+connectDB()
 
 app.get('/', async (req, res) => {
   if (!client) {
     return res.send(
-      '🔥 PostgreSQL is not configured. The app is running without a DB. 🔥\n'
+      '🔥 PostgreSQL connection error. Check your DB configuration. 🔥\n'
     )
   }
 
@@ -36,7 +40,7 @@ app.get('/', async (req, res) => {
       `¡Hello, Docker! 🐳 The time ⏱️ in PostgreSQL is: ${result.rows[0].now}\n`
     )
   } catch (error) {
-    console.error('❌ Database query error:', error.message)
+    console.error('❌ Query error:', error.message)
     res.send(`Error querying PostgreSQL: ${error.message}\n`)
   }
 })
@@ -44,4 +48,3 @@ app.get('/', async (req, res) => {
 app.listen(port, '0.0.0.0', () => {
   console.log(`✅ Example app listening on port ${port}`)
 })
-
