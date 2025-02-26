@@ -1,12 +1,18 @@
 #!/bin/bash
 
-AWS_REGION="us-east-1"
-ECR_REPO="266735829867.dkr.ecr.$AWS_REGION.amazonaws.com/node-app"
-TASK_FAMILY="node-app-task"
-CLUSTER="bel-clust3r"
-SERVICE="node-app-svc"
+echo "Fetching environment variables from AWS Parameter Store..."
+
+AWS_REGION=$(aws ssm get-parameter --name "/node-app/AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
+ECR_REPO=$(aws ssm get-parameter --name "/node-app/ECR_REPO" --with-decryption --query "Parameter.Value" --output text)
+TASK_FAMILY=$(aws ssm get-parameter --name "/node-app/TASK_FAMILY" --with-decryption --query "Parameter.Value" --output text)
+CLUSTER=$(aws ssm get-parameter --name "/node-app/CLUSTER" --with-decryption --query "Parameter.Value" --output text)
+SERVICE=$(aws ssm get-parameter --name "/node-app/SERVICE" --with-decryption --query "Parameter.Value" --output text)
+
+echo "✅ Loaded environment variables securely."
+
 CPU="256"
 MEMORY="1024"
+
 
 echo "1) AWS ECR authentication"
 aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
@@ -33,6 +39,7 @@ echo "6) Registering new task definition with SSM Parameter Store secrets"
 aws ecs register-task-definition \
     --family $TASK_FAMILY \
     --execution-role-arn $(aws ecs describe-task-definition --task-definition $TASK_FAMILY --query "taskDefinition.executionRoleArn" --output text) \
+    --task-role-arn "arn:aws:iam::266735829867:role/ECSExecRole" \
     --network-mode awsvpc \
     --requires-compatibilities FARGATE \
     --cpu $CPU \
@@ -64,7 +71,9 @@ aws ecs register-task-definition \
                 {\"name\": \"PG_HOST\", \"valueFrom\": \"/node-app/PG_HOST\"},
                 {\"name\": \"PG_DATABASE\", \"valueFrom\": \"/node-app/PG_DATABASE\"},
                 {\"name\": \"PG_PASSWORD\", \"valueFrom\": \"/node-app/PG_PASSWORD\"},
-                {\"name\": \"PG_PORT\", \"valueFrom\": \"/node-app/PG_PORT\"}
+                {\"name\": \"PG_PORT\", \"valueFrom\": \"/node-app/PG_PORT\"},
+                { \"name\": \"PG_SSL_CERT_PATH\", \"valueFrom\": \"/node-app/PG_SSL_CERT_PATH\" }
+
             ],
             \"essential\": true
         }
@@ -73,5 +82,6 @@ aws ecs register-task-definition \
 echo "7) Updating service with new task definition"
 NEW_TASK_DEF=$(aws ecs describe-task-definition --task-definition $TASK_FAMILY --query "taskDefinition.taskDefinitionArn" --output text)
 aws ecs update-service --cluster $CLUSTER --service $SERVICE --task-definition $NEW_TASK_DEF --force-new-deployment
+
 
 echo "🚀 Deployment completed successfully!"

@@ -15,9 +15,15 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Installs AWS CLI inside final image
+RUN apk add --no-cache aws-cli
+
 # Copy only necessary things from last stage
 COPY --from=builder /app /app
 
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 3000
 
-CMD [ "node", "server.js" ]
+ENTRYPOINT ["/entrypoint.sh"]

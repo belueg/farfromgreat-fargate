@@ -1,10 +1,16 @@
 const express = require('express')
 const { Client } = require('pg')
+const fs = require('fs')
 
 const app = express()
 const port = 3000
 
 let client
+
+const sslConfig =
+  process.env.PG_SSL_CERT_PATH && fs.existsSync(process.env.PG_SSL_CERT_PATH)
+    ? { ca: fs.readFileSync(process.env.PG_SSL_CERT_PATH) }
+    : false
 
 const connectDB = async () => {
   client = new Client({
@@ -13,7 +19,8 @@ const connectDB = async () => {
     database: process.env.PG_DATABASE,
     password: process.env.PG_PASSWORD,
     port: process.env.PG_PORT,
-    connectionTimeoutMillis: 3000 
+    connectionTimeoutMillis: 3000,
+    ssl: sslConfig
   })
 
   try {
