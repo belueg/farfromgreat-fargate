@@ -52,6 +52,9 @@ app.get('/', async (req, res) => {
   }
 })
 
-app.listen(port, '0.0.0.0', () => {
+const server = app.listen(port, '0.0.0.0', () => {
   console.log(`✅ Example app listening on port ${port}`)
 })
+
+
+module.exports = { app, server }  
